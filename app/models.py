@@ -42,7 +42,7 @@ class RawOrder(BaseModel):
 
 class ClientItem(BaseModel):
     name: str
-    phone: str
+    phone: str = Field(..., pattern=r"^\+7[3-9]\d{9}$", description="Normalized Russian phone starting with +7")
     email: str
     amount: Union[int, float]
 

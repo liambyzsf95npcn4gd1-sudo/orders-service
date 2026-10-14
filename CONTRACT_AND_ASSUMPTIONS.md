@@ -34,7 +34,7 @@ Fields:
 
 ## 2. Phone Normalization Rules
 
-The service strictly adheres to the recommended Russian phone policy:
+The service strictly adheres to the Russian national phone contract:
 
 1. **Character Validation**:
    - Only digits (`0-9`) and standard phone formatting characters are permitted:
@@ -47,9 +47,9 @@ The service strictly adheres to the recommended Russian phone policy:
 
 2. **Digit Extraction & Prefix Normalization**:
    - Strip all allowed formatting characters to extract the raw digit sequence.
-   - **11 digits starting with `8`**: Normalize to 11 digits starting with `7` (e.g. `8 (999) 123 45 67` -> `79991234567`).
-   - **11 digits starting with `7`**: Retain as-is (e.g. `+7 999 123-45-67` -> `79991234567`).
-   - **10 digits starting with `3` through `9`**: Valid Russian national number without country prefix; normalize by prepending `7` (e.g. `9005551212` -> `79005551212`).
+   - **11 digits starting with `8`**: Normalize to 11 digits starting with `+7` (e.g. `8 (999) 123 45 67` -> `+79991234567`).
+   - **11 digits starting with `7`**: Normalize to 11 digits starting with `+7` (e.g. `+7 999 123-45-67` or `79991234567` -> `+79991234567`).
+   - **10 digits starting with `3` through `9`**: Valid Russian national number without country prefix; normalize by prepending `+7` (e.g. `9005551212` -> `+79005551212`).
    - **All other formats**:
      - Less than 10 digits (e.g., `"123"`, `"+7 999"`): Rejected.
      - 10 digits starting with `0`, `1`, or `2`: Rejected (not standard Russian DEF/ABC area codes).
@@ -58,13 +58,13 @@ The service strictly adheres to the recommended Russian phone policy:
      - Empty string, whitespace-only, or `null`: Rejected.
 
 3. **Output Format**:
-   - The normalized phone is always an 11-digit string matching regex `^7[3-9]\d{9}$`.
+   - The normalized phone is always a 12-character string matching regex `^\+7[3-9]\d{9}$` (leading `+7` followed by exactly 10 digits).
 
 ---
 
 ## 3. Deduplication and Selection Rules
 
-1. Group all valid records by their normalized 11-digit phone number.
+1. Group all valid records by their normalized phone number (`+7XXXXXXXXXX`).
 2. For each phone group, select exactly **one** winning source record using the following priority cascade:
    - **Primary rule**: Highest `amount` (numeric comparison; e.g. `5000 > 1000`).
    - **Secondary rule**: If amounts are equal, latest `created_at` timestamp (parsed as UTC datetime).
@@ -73,7 +73,7 @@ The service strictly adheres to the recommended Russian phone policy:
    - The winning record is preserved as an atomic unit.
    - Values are never merged or cherry-picked from losing records. Specifically, if the winning record has an empty email `""`, it must be returned as `""`, even if losing duplicate records contained non-empty email addresses.
 4. **Output Transformation**:
-   - Each retained client contains only: `name`, `phone` (the normalized phone), `email`, `amount`.
+   - Each retained client contains only: `name`, `phone` (`+7XXXXXXXXXX`), `email`, `amount`.
    - Results are deterministically sorted by `phone` in ascending lexicographical order.
 
 ---
@@ -106,19 +106,19 @@ Inspection of the 17 actual upstream records yields:
 
 | ID | Name | Raw Phone | Amount | Created At | Normalization Result | Classification |
 |---|---|---|---|---|---|---|
-| 1 | Иван Петров | +7 999 123-45-67 | 1000 | 2026-10-01T10:00:00Z | 79991234567 | Duplicate (lost to ID 2 by amount) |
-| 2 | Иван П. | 8 (999) 123 45 67 | 5000 | 2026-10-02T11:00:00Z | 79991234567 | **Winner** (max amount 5000) |
-| 3 | И. Петров | 79991234567 | 3000 | 2026-10-03T09:00:00Z | 79991234567 | Duplicate (lost to ID 2 by amount) |
-| 4 | Мария Сидорова | 8-916-000-00-01 | 200 | 2026-10-01T12:00:00Z | 79160000001 | Duplicate (lost to ID 5 by created_at) |
-| 5 | Мария С. | +7 (916) 000 00 01 | 200 | 2026-10-05T12:00:00Z | 79160000001 | **Winner** (equal amount 200, newer date) |
-| 6 | Олег Кузнецов | 8 903 111 22 33 | 7500 | 2026-10-04T08:30:00Z | 79031112233 | **Winner** (single record) |
-| 7 | Анна Волкова | +79219998877 | 0 | 2026-10-02T14:00:00Z | 79219998877 | Duplicate (lost to ID 8 by amount 0 < 1500) |
-| 8 | Анна В. | 8 921 999 88 77 | 1500 | 2026-10-06T16:00:00Z | 79219998877 | **Winner** (max amount 1500) |
-| 9 | Павел Орлов | 9005551212 | 300 | 2026-10-01T09:15:00Z | 79005551212 | **Winner** (10-digit normalized to 79005551212) |
-| 10 | Елена Морозова | +7-926-123-45-67 | 9000 | 2026-10-03T13:00:00Z | 79261234567 | **Winner** (max amount 9000 beats newer ID 11) |
-| 11 | Елена М. | 8 (926) 123-45-67 | 100 | 2026-10-07T10:00:00Z | 79261234567 | Duplicate (lost to ID 10 by amount 100 < 9000) |
-| 12 | Сергей Зайцев | 8 999 111 00 00 | 450 | 2026-10-02T18:00:00Z | 79991110000 | **Winner** (single record) |
-| 13 | Дмитрий Лебедев | +7 916 445 56 67 | 12000 | 2026-10-08T11:30:00Z | 79164455667 | **Winner** (single record) |
+| 1 | Иван Петров | +7 999 123-45-67 | 1000 | 2026-10-01T10:00:00Z | +79991234567 | Duplicate (lost to ID 2 by amount) |
+| 2 | Иван П. | 8 (999) 123 45 67 | 5000 | 2026-10-02T11:00:00Z | +79991234567 | **Winner** (max amount 5000) |
+| 3 | И. Петров | 79991234567 | 3000 | 2026-10-03T09:00:00Z | +79991234567 | Duplicate (lost to ID 2 by amount) |
+| 4 | Мария Сидорова | 8-916-000-00-01 | 200 | 2026-10-01T12:00:00Z | +79160000001 | Duplicate (lost to ID 5 by created_at) |
+| 5 | Мария С. | +7 (916) 000 00 01 | 200 | 2026-10-05T12:00:00Z | +79160000001 | **Winner** (equal amount 200, newer date) |
+| 6 | Олег Кузнецов | 8 903 111 22 33 | 7500 | 2026-10-04T08:30:00Z | +79031112233 | **Winner** (single record) |
+| 7 | Анна Волкова | +79219998877 | 0 | 2026-10-02T14:00:00Z | +79219998877 | Duplicate (lost to ID 8 by amount 0 < 1500) |
+| 8 | Анна В. | 8 921 999 88 77 | 1500 | 2026-10-06T16:00:00Z | +79219998877 | **Winner** (max amount 1500) |
+| 9 | Павел Орлов | 9005551212 | 300 | 2026-10-01T09:15:00Z | +79005551212 | **Winner** (10-digit normalized to +79005551212) |
+| 10 | Елена Морозова | +7-926-123-45-67 | 9000 | 2026-10-03T13:00:00Z | +79261234567 | **Winner** (max amount 9000 beats newer ID 11) |
+| 11 | Елена М. | 8 (926) 123-45-67 | 100 | 2026-10-07T10:00:00Z | +79261234567 | Duplicate (lost to ID 10 by amount 100 < 9000) |
+| 12 | Сергей Зайцев | 8 999 111 00 00 | 450 | 2026-10-02T18:00:00Z | +79991110000 | **Winner** (single record) |
+| 13 | Дмитрий Лебедев | +7 916 445 56 67 | 12000 | 2026-10-08T11:30:00Z | +79164455667 | **Winner** (single record) |
 | 14 | Без телефона | 123 | 999 | 2026-10-01T00:00:00Z | None | **Invalid Dropped** (too short) |
 | 15 | Пустой телефон | | 999 | 2026-10-01T00:00:00Z | None | **Invalid Dropped** (empty string) |
 | 16 | Текст в поле | не указан | 999 | 2026-10-01T00:00:00Z | None | **Invalid Dropped** (alphabetic text) |
@@ -132,7 +132,7 @@ Inspection of the 17 actual upstream records yields:
 - **Check**: $8 + 5 + 4 = 17 \equiv 17$.
 
 ### Pitfalls and Potential Inconsistencies Addressed:
-1. **Counting duplicate groups vs duplicate records**: There are 4 phone numbers that have duplicates, but 5 records were merged because phone `79991234567` had 3 records (1 winner + 2 duplicates). Counting groups instead of records ($4$ instead of $5$) breaks the conservation invariant ($8 + 4 + 4 = 16 \neq 17$). Our code computes individual merged records.
-2. **10-digit national numbers**: Record 9 (`9005551212`) has 10 digits starting with `9`. Naive 11-digit-only regex would drop it as invalid. Under our explicit policy, it is normalized to `79005551212`.
+1. **Counting duplicate groups vs duplicate records**: In some informal problem descriptions or sample examples, statistics might cite `duplicates_merged: 4`. However, that arises from mistakenly counting *groups that have duplicates* (4 numbers) rather than individual *records removed as duplicates*. Phone `+79991234567` had 3 records (1 winner + 2 duplicates). Three other numbers had 2 records each (1 winner + 1 duplicate). Therefore, exactly $2 + 1 + 1 + 1 = 5$ duplicate records were discarded. If one counted groups ($4$), the accounting invariant would be violated: $8 + 4 + 4 = 16 \neq 17$. Our service strictly computes actual records and preserves conservation of entries.
+2. **10-digit national numbers**: Record 9 (`9005551212`) has 10 digits starting with `9`. Naive 11-digit-only regex would drop it as invalid. Under our explicit policy, it is normalized to `+79005551212`.
 3. **Empty emails**: Winning records ID 2 and ID 8 have empty string emails. They must remain empty strings without borrowing from losing records.
 4. **Older timestamp with larger amount**: Record 10 (`2026-10-03`, amount `9000`) beats Record 11 (`2026-10-07`, amount `100`) because amount takes precedence over recency.

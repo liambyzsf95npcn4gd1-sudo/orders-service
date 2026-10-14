@@ -29,26 +29,33 @@ class TestDeduplicator:
         # 4. Check specific winners
         by_phone = {c.phone: c for c in result.clients}
 
+        # Verify all returned clients have +7 prefix and 11 trailing digits
+        for c in result.clients:
+            assert isinstance(c.phone, str)
+            assert c.phone.startswith("+7")
+            assert len(c.phone) == 12
+            assert c.phone[1:].isdigit() and len(c.phone[1:]) == 11
+
         # ID 2 won over ID 1 and ID 3 with max amount (5000)
-        assert by_phone["79991234567"].amount == 5000
-        assert by_phone["79991234567"].name == "Иван П."
-        assert by_phone["79991234567"].email == ""  # Empty email preserved
+        assert by_phone["+79991234567"].amount == 5000
+        assert by_phone["+79991234567"].name == "Иван П."
+        assert by_phone["+79991234567"].email == ""  # Empty email preserved
 
         # ID 5 won over ID 4 with equal amount (200) by latest timestamp
-        assert by_phone["79160000001"].amount == 200
-        assert by_phone["79160000001"].name == "Мария С."
+        assert by_phone["+79160000001"].amount == 200
+        assert by_phone["+79160000001"].name == "Мария С."
 
         # ID 10 won over ID 11 with higher amount (9000 vs 100) despite older timestamp
-        assert by_phone["79261234567"].amount == 9000
-        assert by_phone["79261234567"].name == "Елена Морозова"
+        assert by_phone["+79261234567"].amount == 9000
+        assert by_phone["+79261234567"].name == "Елена Морозова"
 
         # ID 8 won over ID 7 (amount 1500 vs 0)
-        assert by_phone["79219998877"].amount == 1500
-        assert by_phone["79219998877"].name == "Анна В."
-        assert by_phone["79219998877"].email == ""
+        assert by_phone["+79219998877"].amount == 1500
+        assert by_phone["+79219998877"].name == "Анна В."
+        assert by_phone["+79219998877"].email == ""
 
         # ID 9 (10-digit number) successfully normalized and retained
-        assert "79005551212" in by_phone
+        assert "+79005551212" in by_phone
 
     def test_three_or_more_records_sharing_same_phone(self):
         records = [

@@ -5,6 +5,7 @@ from app.client import fetch_upstream_orders
 from app.deduplicator import deduplicate_and_calculate_stats
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_live_upstream_smoke():
     """Verify live integration with https://test.ooobs.ru/api/orders."""
@@ -22,3 +23,7 @@ async def test_live_upstream_smoke():
         + result.stats.invalid_dropped
     )
     assert len(result.clients) == result.stats.unique
+    for client in result.clients:
+        assert client.phone.startswith("+7")
+        assert len(client.phone) == 12
+        assert client.phone[1:].isdigit()

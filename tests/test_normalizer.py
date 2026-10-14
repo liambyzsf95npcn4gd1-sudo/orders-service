@@ -1,5 +1,6 @@
 """Unit tests for Russian phone number normalization."""
 
+import re
 import pytest
 from app.normalizer import normalize_russian_phone
 
@@ -9,42 +10,54 @@ class TestRussianPhoneNormalization:
         "raw_input, expected",
         [
             # Sample data formats
-            ("+7 999 123-45-67", "79991234567"),
-            ("8 (999) 123 45 67", "79991234567"),
-            ("79991234567", "79991234567"),
-            ("8-916-000-00-01", "79160000001"),
-            ("+7 (916) 000 00 01", "79160000001"),
-            ("8 903 111 22 33", "79031112233"),
-            ("+79219998877", "79219998877"),
-            ("8 921 999 88 77", "79219998877"),
-            ("+7-926-123-45-67", "79261234567"),
-            ("8 (926) 123-45-67", "79261234567"),
-            ("8 999 111 00 00", "79991110000"),
-            ("+7 916 445 56 67", "79164455667"),
+            ("+7 999 123-45-67", "+79991234567"),
+            ("8 (999) 123 45 67", "+79991234567"),
+            ("79991234567", "+79991234567"),
+            ("8-916-000-00-01", "+79160000001"),
+            ("+7 (916) 000 00 01", "+79160000001"),
+            ("8 903 111 22 33", "+79031112233"),
+            ("+79219998877", "+79219998877"),
+            ("8 921 999 88 77", "+79219998877"),
+            ("+7-926-123-45-67", "+79261234567"),
+            ("8 (926) 123-45-67", "+79261234567"),
+            ("8 999 111 00 00", "+79991110000"),
+            ("+7 916 445 56 67", "+79164455667"),
             # Punctuation variations with dots and hyphens
-            ("+7.926.123.45.67", "79261234567"),
-            ("8.926.123.45.67", "79261234567"),
-            ("+7(926)123-45-67", "79261234567"),
-            ("8(926)1234567", "79261234567"),
+            ("+7.926.123.45.67", "+79261234567"),
+            ("8.926.123.45.67", "+79261234567"),
+            ("+7(926)123-45-67", "+79261234567"),
+            ("8(926)1234567", "+79261234567"),
         ],
     )
     def test_valid_11_digit_formats(self, raw_input, expected):
-        assert normalize_russian_phone(raw_input) == expected
+        normalized = normalize_russian_phone(raw_input)
+        assert normalized == expected
+        assert isinstance(normalized, str)
+        assert normalized.startswith("+7")
+        assert len(normalized) == 12
+        assert normalized[1:].isdigit() and len(normalized[1:]) == 11
+        assert re.match(r"^\+7[3-9]\d{9}$", normalized)
 
     @pytest.mark.parametrize(
         "raw_input, expected",
         [
-            ("9005551212", "79005551212"),
-            ("(900) 555-12-12", "79005551212"),
-            ("916.000.00.01", "79160000001"),
-            ("4951234567", "74951234567"),
-            ("(495) 123-45-67", "74951234567"),
-            ("812-345-67-89", "78123456789"),
-            ("343-222-33-44", "73432223344"),
+            ("9005551212", "+79005551212"),
+            ("(900) 555-12-12", "+79005551212"),
+            ("916.000.00.01", "+79160000001"),
+            ("4951234567", "+74951234567"),
+            ("(495) 123-45-67", "+74951234567"),
+            ("812-345-67-89", "+78123456789"),
+            ("343-222-33-44", "+73432223344"),
         ],
     )
     def test_valid_10_digit_national_normalization(self, raw_input, expected):
-        assert normalize_russian_phone(raw_input) == expected
+        normalized = normalize_russian_phone(raw_input)
+        assert normalized == expected
+        assert isinstance(normalized, str)
+        assert normalized.startswith("+7")
+        assert len(normalized) == 12
+        assert normalized[1:].isdigit() and len(normalized[1:]) == 11
+        assert re.match(r"^\+7[3-9]\d{9}$", normalized)
 
     @pytest.mark.parametrize(
         "invalid_10_digit",

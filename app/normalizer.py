@@ -38,17 +38,17 @@ def normalize_russian_phone(raw_phone: Optional[str]) -> Optional[str]:
     # Extract digits only
     digits = re.sub(r"\D", "", stripped)
 
-    # 11-digit number beginning with 8 -> normalize to beginning with 7
+    # 11-digit number beginning with 8 -> normalize to +7
     if len(digits) == 11 and digits.startswith("8"):
-        return "7" + digits[1:]
+        return "+7" + digits[1:]
 
-    # 11-digit number beginning with 7 -> preserve
+    # 11-digit number beginning with 7 -> normalize to +7
     if len(digits) == 11 and digits.startswith("7"):
-        return digits
+        return "+" + digits
 
-    # 10-digit Russian national number beginning with 3-9 -> prepend 7
+    # 10-digit Russian national number beginning with 3-9 -> prepend +7
     if len(digits) == 10 and digits[0] in "3456789":
-        return "7" + digits
+        return "+7" + digits
 
     # All other formats rejected
     return None

@@ -51,12 +51,36 @@ class TestApiEndpoints:
             assert isinstance(c["phone"], str)
             assert isinstance(c["email"], str)
             assert isinstance(c["amount"], (int, float))
-            assert len(c["phone"]) == 11
-            assert c["phone"].startswith("7")
+            assert c["phone"].startswith("+7")
+            assert len(c["phone"]) == 12
+            assert c["phone"][1:].isdigit() and len(c["phone"][1:]) == 11
+            assert c["phone"][2] in "3456789"
 
         # Check ordering
         phones = [c["phone"] for c in clients]
         assert phones == sorted(phones)
+
+    @patch("app.main.fetch_upstream_orders", new_callable=AsyncMock)
+    def test_endpoint_serialized_json_phone_contract_format(self, mock_fetch, client, sample_upstream_orders):
+        """Strictly verify that every client in the serialized HTTP response matches +7XXXXXXXXXX."""
+        mock_fetch.return_value = sample_upstream_orders
+        resp = client.get("/")
+        assert resp.status_code == 200
+        raw_json_data = resp.json()
+
+        clients = raw_json_data["clients"]
+        assert len(clients) == 8
+
+        for client_obj in clients:
+            phone_val = client_obj["phone"]
+            assert isinstance(phone_val, str), f"Phone {phone_val} must be a string"
+            assert phone_val.startswith("+7"), f"Phone {phone_val} must start with +7"
+            assert len(phone_val) == 12, f"Phone {phone_val} must be 12 chars (+7 + 10 digits)"
+            digits_only = phone_val.replace("+", "")
+            assert len(digits_only) == 11, f"Phone {phone_val} must contain 11 digits without +"
+            assert digits_only.isdigit(), f"Phone {phone_val} must be digits only after removing +"
+            assert digits_only.startswith("7"), f"Phone {phone_val} must start with 7 after removing +"
+            assert digits_only[1] in "3456789", f"DEF/ABC code in {phone_val} must start with 3-9"
 
     @patch("app.main.fetch_upstream_orders", new_callable=AsyncMock)
     def test_repeated_calls_deterministic_idempotent(self, mock_fetch, client, sample_upstream_orders):
